@@ -321,21 +321,49 @@ const ConfirmClearModal: React.FC<ConfirmClearModalProps> = ({ onConfirm, onCanc
 };
 
 const App: React.FC = () => {
-  const [language, setLanguage] = useState<'zh' | 'en'>('zh');
+  // Load initial state from localStorage if available
+  const [language, setLanguage] = useState<'zh' | 'en'>(() => {
+    return (localStorage.getItem('timeline_language') as 'zh' | 'en') || 'zh';
+  });
   const t = TRANSLATIONS[language];
 
-  // Set default years dynamically based on current date
-  const [startYear, setStartYear] = useState<number>(new Date().getFullYear() - 10);
-  const [endYear, setEndYear] = useState<number>(new Date().getFullYear());
+  // Set default years dynamically based on current date, or load from storage
+  const [startYear, setStartYear] = useState<number>(() => {
+    const saved = localStorage.getItem('timeline_startYear');
+    return saved ? parseInt(saved, 10) : new Date().getFullYear() - 10;
+  });
+  const [endYear, setEndYear] = useState<number>(() => {
+    const saved = localStorage.getItem('timeline_endYear');
+    return saved ? parseInt(saved, 10) : new Date().getFullYear();
+  });
   
-  const [topSectionLabel, setTopSectionLabel] = useState<string>('Work');
-  const [bottomSectionLabel, setBottomSectionLabel] = useState<string>('Personal');
+  const [topSectionLabel, setTopSectionLabel] = useState<string>(() => {
+    return localStorage.getItem('timeline_topSectionLabel') || 'Work';
+  });
+  const [bottomSectionLabel, setBottomSectionLabel] = useState<string>(() => {
+    return localStorage.getItem('timeline_bottomSectionLabel') || 'Personal';
+  });
   
-  const [progressBlocks, setProgressBlocks] = useState<ProgressBlockData[]>([]);
+  const [progressBlocks, setProgressBlocks] = useState<ProgressBlockData[]>(() => {
+    const saved = localStorage.getItem('timeline_progressBlocks');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Failed to parse saved blocks', e);
+      return [];
+    }
+  });
+
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
   const [isAddingBlock, setIsAddingBlock] = useState<boolean>(false);
   const [editingBlock, setEditingBlock] = useState<ProgressBlockData | null>(null);
-  const [isEditingYears, setIsEditingYears] = useState<boolean>(true); // Start true to prompt user
+  
+  // Show year edit modal on first load if no years were previously saved
+  const [isEditingYears, setIsEditingYears] = useState<boolean>(() => {
+    const savedStart = localStorage.getItem('timeline_startYear');
+    return !savedStart;
+  });
+
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState<boolean>(false);
   const [clearMode, setClearMode] = useState<'all' | 'selected'>('all');
 
@@ -352,6 +380,32 @@ const App: React.FC = () => {
     timelineWidth: 0,
     startMonthAbsIndex: 0,
   });
+
+  // --- PERSISTENCE EFFECTS ---
+  useEffect(() => {
+    localStorage.setItem('timeline_language', language);
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('timeline_startYear', startYear.toString());
+  }, [startYear]);
+
+  useEffect(() => {
+    localStorage.setItem('timeline_endYear', endYear.toString());
+  }, [endYear]);
+
+  useEffect(() => {
+    localStorage.setItem('timeline_topSectionLabel', topSectionLabel);
+  }, [topSectionLabel]);
+
+  useEffect(() => {
+    localStorage.setItem('timeline_bottomSectionLabel', bottomSectionLabel);
+  }, [bottomSectionLabel]);
+
+  useEffect(() => {
+    localStorage.setItem('timeline_progressBlocks', JSON.stringify(progressBlocks));
+  }, [progressBlocks]);
+  // ---------------------------
 
   useEffect(() => {
     // Use ResizeObserver to reliably get content dimensions regardless of scrollbar or padding
